@@ -24,7 +24,6 @@ int counter = 1;
 float temperature_read = 0.0;
 float set_temperature = 100;
 float PID_error = 0;
-float previous_error = 0;
 float elapsedTime, Time, timePrev;
 int PID_value = 0;
 
@@ -61,7 +60,7 @@ void setup() {
   display.init();
   display.flipScreenVertically();
   display.setFont(ArialMT_Plain_10);
-  sensors.begin();
+  
   pinMode(digitalPinToInterrupt(encoder0PinA), INPUT_PULLUP);
   pinMode(digitalPinToInterrupt(encoder0PinB), INPUT_PULLUP);
   pinMode(digitalPinToInterrupt(button0Pin), INPUT_PULLUP);
@@ -71,7 +70,11 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(encoder0PinA), doEncoderA, FALLING);
   attachInterrupt(digitalPinToInterrupt(encoder0PinB), doEncoderB, FALLING);
 
+  sensors.begin();
+  sensors.setResolution(9);
+  // 12 bit res, 750 ms // 11 bit res, 375 ms // 10 bit res, 187.5 ms // 9 bit res, 93.75 ms
   sensors.requestTemperatures(); // Send the command to get temperatures
+  
   Serial.println("Setup");
 }
 
@@ -118,11 +121,10 @@ void drawProgressBarDemo() {
 void loop() {
   display.clear();
 
-  if (  millis() > ( thermometer_timestamp + 1000 ) )
+  if (  millis() > ( thermometer_timestamp + 300 ) )
   {
     sensors.requestTemperatures();
     thermometer_timestamp = millis();
-
 
     // First we read the real value of temperature
     temp_act = sensors.getTempCByIndex(0);
@@ -148,7 +150,12 @@ void loop() {
       PID_value = 255;
     }
 
-  }
+    // Refresh display, together with recalculate PID
+    OneS_timestamp = millis();
+    drawTemp(temp_set, temp_act);
+    display.display();
+    
+  } // thermometer_timestamp
 
   // PWM - heating element
   // 20 ms * 255 = 5s period
@@ -169,10 +176,9 @@ void loop() {
     {
         digitalWrite(HeatElPin, LOW);
     }    
-  }
+  } // PWM
 
   temp_set = encoder0Pos;
-
 
   //Serial.println("Loop");
   if ( blink_timestamp == 0 )
@@ -188,14 +194,8 @@ void loop() {
 
   if ( (millis() - OneS_timestamp) > 1000 )
   {
-    OneS_timestamp = millis();
   }
 
-  drawTemp(temp_set, temp_act);
-
-  display.display();
-
-  delay(50);
 }
 
 
@@ -206,7 +206,6 @@ ICACHE_RAM_ATTR void doEncoderA()
   {
     encoder0Pos = encoder0Pos - 1;
     encoder_timestamp = millis();
-    thermometer_timestamp = millis() + 700;
   }
 }
 
@@ -216,7 +215,6 @@ ICACHE_RAM_ATTR void doEncoderB()
   {
     encoder0Pos = encoder0Pos + 1;
     encoder_timestamp = millis();
-    thermometer_timestamp = millis() + 700;
   }
 }
 
@@ -226,6 +224,5 @@ ICACHE_RAM_ATTR void doButton0()
   {
     Button0_state = 1;
     encoder_timestamp = millis();
-    thermometer_timestamp = millis() + 700;
   }
 }
