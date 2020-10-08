@@ -1,6 +1,5 @@
 #include <Wire.h>  // Only needed for Arduino 1.6.5 and earlier
 #include "SSD1306.h" // alias for `#include "SSD1306Wire.h"`
-#include "images.h"
 
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -21,6 +20,18 @@ int counter = 1;
 #define button0Pin  0
 #define HeatElPin  D7
 
+//Variables
+float temperature_read = 0.0;
+float set_temperature = 100;
+float PID_error = 0;
+float previous_error = 0;
+float elapsedTime, Time, timePrev;
+int PID_value = 0;
+
+//PID constants
+int kp = 9.1;   int ki = 0.3;   int kd = 1.8;
+int PID_p = 0;    int PID_i = 0;    int PID_d = 0;
+
 
 volatile float encoder0Pos = 50;
 volatile char Button0_state = 0;
@@ -30,11 +41,12 @@ unsigned long encoder_timestamp = 0;
 unsigned long button_timestamp = 0;
 unsigned long thermometer_timestamp = 0;
 unsigned long OneS_timestamp = 0;
+unsigned long pwm_timestamp = 0;
+
+int pwm_count = 0;
 
 float temp_set = 0;
 float temp_act = 0;
-boolean heating = 0;
-
 
 #define ONE_WIRE_BUS D4
 OneWire oneWire(ONE_WIRE_BUS);
@@ -68,7 +80,7 @@ void drawTemp(float temp_set, float temp_act) {
   display.setTextAlignment(TEXT_ALIGN_LEFT);
   display.setFont(ArialMT_Plain_16); // 24
   unsigned long temp = millis() / 1000;
-  display.drawString(5,  14, "Time: " + String(((temp/(60)) % 60)) + " m  "  + String(temp % 60 ) + " s" );
+  display.drawString(5,  14, "Time: " + String(((temp / (60)) % 60)) + " m  "  + String(temp % 60 ) + " s" );
   display.drawString(5,  30, "Set: " + String(temp_set, 1) + " °C" );
   display.drawString(5, 46, "Act: " + String(temp_act, 1) + " °C" );
 
@@ -110,21 +122,59 @@ void loop() {
   {
     sensors.requestTemperatures();
     thermometer_timestamp = millis();
+
+
+    // First we read the real value of temperature
     temp_act = sensors.getTempCByIndex(0);
-    if (temp_set > temp_act)
-    { // Heat ON
-      heating = true;
+    //Next we calculate the error between the setpoint and the real value
+    PID_error = set_temperature - temp_act;
+    //Calculate the P value
+    PID_p = kp * PID_error;
+    //Calculate the I value in a range on +-3
+    if (-3 < PID_error < 3)
+    {
+      PID_i = PID_i + (ki * PID_error);
+    }
+    PID_d = 0;
+    PID_value = PID_p + PID_i + PID_d;
+
+    //We define PWM range between 0 and 255
+    if (PID_value < 0)
+    {
+      PID_value = 0;
+    }
+    if (PID_value > 255)
+    {
+      PID_value = 255;
+    }
+
+  }
+
+  // PWM - heating element
+  // 20 ms * 255 = 5s period
+  if (  millis() > ( pwm_timestamp + 20 ) )
+  {
+    pwm_timestamp = millis();
+    pwm_count = pwm_count + 1;
+    if (pwm_count >= 256)
+    {
+      pwm_count = 0;
+    }
+
+    if ( pwm_count < PID_value )
+    {
+        digitalWrite(HeatElPin, HIGH);
     }
     else
-    { // Heat OFF
-      heating = false;
-    }
+    {
+        digitalWrite(HeatElPin, LOW);
+    }    
   }
+
   temp_set = encoder0Pos;
 
 
   //Serial.println("Loop");
-
   if ( blink_timestamp == 0 )
   {
     // drawRectDemo();
@@ -142,17 +192,6 @@ void loop() {
   }
 
   drawTemp(temp_set, temp_act);
-  if ( heating )
-  {
-    // display.drawHorizontalLine(0, 63, 128);
-    digitalWrite(HeatElPin, HIGH);
-  //  display.drawString(5,  0, "Heat ON" );
-  }
-  else
-  {
-    digitalWrite(HeatElPin, LOW);
-   // display.drawString(5,  0, "Heat OFF" );
-  }
 
   display.display();
 
