@@ -7,9 +7,6 @@
 // Initialize the OLED display using Wire library
 SSD1306  display(0x3c, D2, D1);
 
-#define DEMO_DURATION 3000
-typedef void (*Demo)(void);
-
 int demoMode = 0;
 int counter = 1;
 
@@ -27,9 +24,12 @@ float PID_error = 0;
 float elapsedTime, Time, timePrev;
 int PID_value = 0;
 
-//PID constants
+// PID constants
 int kp = 9.1;   int ki = 0.3;   int kd = 1.8;
 int PID_p = 0;    int PID_i = 0;    int PID_d = 0;
+// Set and Actual temperature
+float temp_set = 0;
+float temp_act = 0;
 
 
 volatile float encoder0Pos = 50;
@@ -44,8 +44,6 @@ unsigned long pwm_timestamp = 0;
 
 int pwm_count = 0;
 
-float temp_set = 0;
-float temp_act = 0;
 
 #define ONE_WIRE_BUS D4
 OneWire oneWire(ONE_WIRE_BUS);
@@ -56,7 +54,6 @@ void setup() {
   Serial.println();
   Serial.println();
   
-
   // Initialising the UI will init the display too.
   display.init();
   display.flipScreenVertically();
