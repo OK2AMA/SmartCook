@@ -37,9 +37,7 @@ volatile char Button0_state = 0;
 volatile char blink_timestamp = 0;
 
 unsigned long encoder_timestamp = 0;
-unsigned long button_timestamp = 0;
 unsigned long thermometer_timestamp = 0;
-unsigned long OneS_timestamp = 0;
 unsigned long pwm_timestamp = 0;
 
 int pwm_count = 0;
@@ -149,7 +147,6 @@ void loop() {
     }
 
     // Refresh display, together with recalculate PID
-    OneS_timestamp = millis();
     drawTemp(temp_set, temp_act);
     display.display();
     
@@ -173,26 +170,12 @@ void loop() {
     else
     {
         digitalWrite(HeatElPin, LOW);
+        display.drawVerticalLine( 0, 0, 1);
+
     }    
   } // PWM
 
   temp_set = encoder0Pos;
-
-  //Serial.println("Loop");
-  if ( blink_timestamp == 0 )
-  {
-    // drawRectDemo();
-    display.drawVerticalLine( 0, 0, 1);
-    blink_timestamp = 1;
-  }
-  else
-  {
-    blink_timestamp = 0;
-  }
-
-  if ( (millis() - OneS_timestamp) > 1000 )
-  {
-  }
 
 }
 
